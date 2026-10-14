@@ -197,6 +197,12 @@ class MediaKitPlayer extends AudioPlayerPlatform {
         _dataController.add(PlayerDataMessage(speed: rate));
       }),
       _player.stream.log.listen((event) {
+        final callback = JustAudioMediaKit.nativeLogCallback;
+        if (callback != null) {
+          callback(id, event.level, event.prefix, event.text);
+          return;
+        }
+
         // ignore: avoid_print
         print("MPV: [${event.level}] ${event.prefix}: ${event.text}");
       }),
@@ -304,11 +310,16 @@ class MediaKitPlayer extends AudioPlayerPlatform {
           audioSource.children.map(_convertAudioSourceIntoMediaKit).toList(),
           index: _currentIndex);
 
+      if (_currentIndex >= 0 && _currentIndex < playable.medias.length) {
+        _logLoadDiagnostics(playable.medias[_currentIndex]);
+      }
+
       await (_pendingOpen = _player.open(playable, play: _playing));
     } else {
       final playable =
           _convertAudioSourceIntoMediaKit(request.audioSourceMessage);
       _logger.finest('playable is ${playable.toString()}');
+      _logLoadDiagnostics(playable);
       await (_pendingOpen = _player.open(playable, play: _playing));
     }
     if (_released || _failed) return LoadResponse(duration: await load.future);
@@ -335,6 +346,28 @@ class MediaKitPlayer extends AudioPlayerPlatform {
     _updatePlaybackEvent();
     final duration = await load.future;
     return LoadResponse(duration: duration);
+  }
+
+  void _logLoadDiagnostics(Media media) {
+    final callback = JustAudioMediaKit.nativeLogCallback;
+    if (callback == null) {
+      return;
+    }
+
+    final uri = Uri.tryParse(media.uri);
+    final headerNames =
+        media.httpHeaders?.keys.map((name) => name.toLowerCase()).toSet() ??
+            <String>{};
+    callback(
+      id,
+      'debug',
+      'load',
+      'Opening trackIndex=$_currentIndex, scheme=${uri?.scheme}, port=${uri?.port}, '
+          'loopback=${uri?.host == 'localhost' || uri?.host == '127.0.0.1' || uri?.host == '::1'}, '
+          'headerCount=${headerNames.length}, authorizationHeader=${headerNames.contains('authorization')}, '
+          'cookieHeader=${headerNames.contains('cookie')}, bufferBytes=${JustAudioMediaKit.bufferSize}, '
+          'nativeLogLevel=${JustAudioMediaKit.mpvLogLevel.name}',
+    );
   }
 
   @override

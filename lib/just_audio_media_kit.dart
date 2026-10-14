@@ -10,11 +10,18 @@ import 'package:logging/logging.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:universal_platform/universal_platform.dart';
 
+export 'package:media_kit/media_kit.dart' show MPVLogLevel;
+
 class JustAudioMediaKit extends JustAudioPlatform {
   JustAudioMediaKit._();
 
   /// The internal MPV player's logLevel
   static MPVLogLevel mpvLogLevel = MPVLogLevel.error;
+
+  /// Receives native logs instead of printing them to the console.
+  static void Function(
+          String playerId, String level, String prefix, String message)?
+      nativeLogCallback;
 
   /// Sets the demuxer's cache size (in bytes)
   static int bufferSize = 32 * 1024 * 1024;
